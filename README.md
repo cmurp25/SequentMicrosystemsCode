@@ -1,2 +1,2 @@
-# SequentMicrosystemsCode
+# SequentMicrosystemsCodeForProject
 Code for Sequent Microsystems
