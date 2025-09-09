@@ -1,49 +1,59 @@
-import time
 import sm_4rel4in
+import time
 
-# Initialize the relay card (stack level 0)
+# Initialize relay/input card at stack level 0
 rel = sm_4rel4in.SM4rel4in(0)
 
-# Channels to monitor
-channel_1 = 1
-channel_2 = 2
+# Enable counting on all 4 input channels
+for i in range(4):
+    rel.set_count_cfg(i + 1, 1)
+    rel.reset_count(i + 1)
 
-# Tracking variables
-sum_value = 0
-signal_1_detected = False
-signal_2_detected = False
+# Trays mapping
+# Channel 1: Overhead buffer addition
+# Channel 2: Overhead buffer subtraction
+# Channel 3: Wet section addition
+# Channel 4: Wet section subtraction
 
-# Optional: Debounce timing
-last_trigger_time_ch1 = 0
-last_trigger_time_ch2 = 0
-debounce_delay = 0.001  # 1ms debounce
+print("Wet Section Counter Test Started")
+print("Monitoring inputs 1-4 with hardware counters... Press Ctrl+C to exit.\n")
+
+# Previous values to detect change
+prev_counts = {i: 0 for i in range(1, 5)}
+sum_1_value = 0   # Overhead buffer trays
+sum_2_value = 0   # Wet section trays
 
 try:
     while True:
-        signal_1 = rel.get_in(channel_1)
-        signal_2 = rel.get_in(channel_2)
+        # Read hardware counts
+        counts = {i: rel.get_count(i) for i in range(1, 5)}
 
-        # Rising edge detection for channel 1 → increment sum
-        if signal_1 == 1 and not signal_1_detected and time.time() - last_trigger_time_ch1 > debounce_delay:
-            sum_value += 1
-            signal_1_detected = True
-            last_trigger_time_ch1 = time.time()
-        elif signal_1 != 1 and signal_1_detected:
-            signal_1_detected = False
+        # Process deltas
+        for ch in range(1, 5):
+            delta = counts[ch] - prev_counts[ch]
+            if delta > 0:
+                if ch == 1:  # Overhead buffer addition
+                    sum_1_value += delta
+                elif ch == 2:  # Overhead buffer subtraction
+                    sum_1_value = max(0, sum_1_value - delta)
+                elif ch == 3:  # Wet section addition
+                    sum_2_value += delta
+                elif ch == 4:  # Wet section subtraction
+                    sum_2_value = max(0, sum_2_value - delta)
 
-        # Rising edge detection for channel 2 → decrement sum
-        if signal_2 == 1 and not signal_2_detected and time.time() - last_trigger_time_ch2 > debounce_delay:
-            sum_value -= 1
-            signal_2_detected = True
-            last_trigger_time_ch2 = time.time()
-        elif signal_2 != 1 and signal_2_detected:
-            signal_2_detected = False
+        # Print only when totals change
+        if counts != prev_counts:
+            print("===========================================")
+            print("OHB and WS Trays Count")
+            print(f"Overhead Buffer Trays: {sum_1_value}")
+            print(f"Wet Section Trays:     {sum_2_value}")
 
-        # Print status
-        print(f"Sum: {sum_value}")
-
-        # Sleep for CPU efficiency
-        time.sleep(0.001)
+        prev_counts = counts
+        time.sleep(0.1)
 
 except KeyboardInterrupt:
-    print("\nStopped by user.")
+    print("\nCleaning up...")
+    for i in range(4):
+        rel.reset_count(i + 1)       # Reset count
+        rel.set_count_cfg(i + 1, 0)  # Disable counting
+    print("Counts cleared and counting disabled. Exiting...")
