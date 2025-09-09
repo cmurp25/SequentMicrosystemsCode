@@ -4,10 +4,11 @@ import time
 # Initialize relay/input card at stack level 0
 rel = sm_4rel4in.SM4rel4in(0)
 
-# Enable counting on all 4 input channels
+# Enable counting on all 4 input channels at startup
+print("Enabling counting on all channels and resetting counts...")
 for i in range(4):
-    rel.set_count_cfg(i + 1, 1)
-    rel.reset_count(i + 1)
+    rel.set_count_cfg(i + 1, 1)   # Enable counting
+    rel.reset_count(i + 1)        # Reset count to zero
 
 # Trays mapping
 # Channel 1: Overhead buffer addition
